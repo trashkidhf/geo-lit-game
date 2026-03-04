@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="ru" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>География в литературе</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Source+Sans+Pro:wght@400;600&display=swap" rel="stylesheet">
+  
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    
+    .quiz-bg {
+      background: linear-gradient(135deg, #0a1e3e 0%, #1a3d5c 20%, #2d5f8d 40%, #1f4a6b 60%, #0d2447 80%, #050f1f 100%);
+      min-height: 100%;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .quiz-bg::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      background: 
+        radial-gradient(ellipse 800px 600px at 15% 20%, rgba(255, 193, 7, 0.15) 0%, transparent 40%),
+        radial-gradient(ellipse 700px 500px at 85% 30%, rgba(100, 220, 255, 0.12) 0%, transparent 45%),
+        radial-gradient(ellipse 600px 700px at 50% 80%, rgba(76, 175, 80, 0.08) 0%, transparent 50%),
+        radial-gradient(circle at 20% 70%, rgba(63, 81, 181, 0.1) 0%, transparent 40%);
+      pointer-events: none;
+    }
+    
+    .quiz-bg.robinson-theme { background: linear-gradient(135deg, #1a3d2e 0%, #2d5c4d 30%, #3d7a6e 60%, #1a3d2e 100%); }
+    .quiz-bg.grant-theme { background: linear-gradient(135deg, #2d1e0f 0%, #5c3d1f 30%, #8b5a2b 60%, #2d1e0f 100%); }
+    .quiz-bg.nemo-theme { background: linear-gradient(135deg, #001a4d 0%, #003d7a 30%, #0056b3 60%, #001a4d 100%); }
+    .quiz-bg.valikhanov-theme { background: linear-gradient(135deg, #3d2e1f 0%, #6b5a4a 30%, #9d8b7e 60%, #3d2e1f 100%); }
+    
+    .card-glass {
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    
+    .answer-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      transition: all 0.3s ease;
+    }
+    
+    .answer-btn:hover:not(:disabled) { background: rgba(255, 215, 0, 0.2); border-color: #ffd700; transform: translateX(8px); }
+    .answer-btn.correct { background: rgba(34, 197, 94, 0.3) !important; border-color: #22c55e !important; }
+    .answer-btn.incorrect { background: rgba(239, 68, 68, 0.3) !important; border-color: #ef4444 !important; }
+    
+    .progress-fill { transition: width 0.5s ease; }
+    .fade-in { animation: fadeIn 0.5s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    
+    .illustration-img { max-height: 200px; object-fit: cover; }
+    .map-img { max-height: 180px; object-fit: contain; }
+
+    .book-block { border-left: 4px solid; transition: all 0.3s ease; }
+    .robinson-block { border-left-color: #fbbf24; }
+    .robinson-block:hover { background: rgba(251, 191, 36, 0.12); transform: translateX(4px); }
+    .grant-block { border-left-color: #ef5350; }
+    .grant-block:hover { background: rgba(239, 83, 80, 0.12); transform: translateX(4px); }
+    .nemo-block { border-left-color: #42a5f5; }
+    .nemo-block:hover { background: rgba(66, 165, 245, 0.12); transform: translateX(4px); }
+    .valikhanov-block { border-left-color: #fdb913; }
+    .valikhanov-block:hover { background: rgba(253, 185, 19, 0.12); transform: translateX(4px); }
+  </style>
+</head>
+<body class="h-full overflow-auto text-white">
+  
+  <div id="app-wrapper" class="quiz-bg min-h-full w-full p-4 md:p-8 flex flex-col items-center">
+    <div class="max-w-4xl w-full mx-auto">
+      
+      <header class="text-center mb-8 fade-in">
+        <h1 class="text-4xl md:text-5xl font-bold text-white mb-2" style="font-family: 'Playfair Display', serif;">🌍 География в литературе</h1>
+        <p class="text-amber-200/80 text-lg" style="font-family: 'Source Sans Pro', sans-serif;">Проверьте свои знания географии через классическую литературу</p>
+      </header>
+
+      <div id="auth-section" class="mb-8 w-full"></div>
+
+      <div id="main-menu" class="w-full">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 max-w-5xl mx-auto" id="books-grid">
+          </div>
+      </div>
+
+      <div id="leaderboard-section" class="hidden w-full max-w-2xl mx-auto card-glass rounded-3xl p-6 fade-in mb-8">
+        <div class="flex justify-between items-center mb-6">
+          <button onclick="showMenu()" class="px-4 py-2 bg-white/10 rounded-xl hover:bg-white/20 transition">← Назад</button>
+          <h2 class="text-2xl font-bold text-amber-400 font-display">Лучшие географы</h2>
+          <div></div>
+        </div>
+        <div id="leaderboard-list" class="space-y-2">
+          </div>
+      </div>
+
+      <div id="quiz-wrapper" class="hidden w-full max-w-3xl mx-auto">
+        <div class="mb-6">
+         <div class="flex justify-between text-sm text-white/70 mb-2" style="font-family: 'Source Sans Pro', sans-serif;">
+          <span id="progress-text">Вопрос 1 из 18</span> <span id="score-text">Счёт: 0</span>
+         </div>
+         <div class="h-3 bg-white/10 rounded-full overflow-hidden">
+          <div id="progress-bar" class="h-full bg-gradient-to-r from-amber-400 to-amber-500 progress-fill rounded-full" style="width: 0%"></div>
+         </div>
+        </div>
+        <div id="quiz-container" class="card-glass rounded-2xl p-6 md:p-8 fade-in">
+         </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // --- FIREBASE CONFIGURATION ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyAJ7yxreLeCbZbUuqIV_21RxcswlWQa230",
+      authDomain: "geo-lit-quiz.firebaseapp.com",
+      databaseURL: "https://geo-lit-quiz-default-rtdb.firebaseio.com", // Добавлена ссылка на базу
+      projectId: "geo-lit-quiz",
+      storageBucket: "geo-lit-quiz.firebasestorage.app",
+      messagingSenderId: "135551913641",
+      appId: "1:135551913641:web:bf6ba4468e2a079f9323b8"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.database();
+
+    // --- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ---
+    let currentUser = null;
+    let userScores = {}; // Хранит лучшие очки по книгам: { 0: 4, 1: 5 }
+    let totalScore = 0;
+    
+    let currentQuestion = 0;
+    let score = 0;
+    let answered = false;
+    let startingBook = 0;
+
+    // --- ДАННЫЕ ВИКТОРИНЫ ---
+    const books = [
+      { id: 0, title: "Робинзон Крузо", author: "Даниель Дефо", qCount: 4, desc: "🏝️ Путешествие на архипелаг Хуан-Фернандес", theme: "robinson-block", color: "text-amber-200" },
+      { id: 1, title: "Капитан Грант", author: "Жюль Верн", qCount: 5, desc: "🗺️ Путешествие по 37-й параллели через три материка", theme: "grant-block", color: "text-red-200" },
+      { id: 2, title: "Капитан Немо", author: "Жюль Верн", qCount: 5, desc: "🐙 Путешествие на Наутилусе в глубины океанов", theme: "nemo-block", color: "text-cyan-200" },
+      { id: 3, title: "Чокан Валиханов", author: "Казахский исследователь", qCount: 4, desc: "🏔️ Исследование Кашгарии на Шёлковом пути", theme: "valikhanov-block", color: "text-yellow-200" }
+    ];
+
+    // Функции для генерации SVG (свернуты для чистоты кода, но они тут!)
+    function getSVGIllustration(type) {
+      if(type==='robinson') return `<svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="180" fill="#87CEEB"/><circle cx="350" cy="40" r="35" fill="#FFD700"/><rect y="180" width="400" height="120" fill="#1E90FF"/><path d="M 0 190 Q 50 185 100 190 T 200 190 T 300 190 T 400 190" stroke="#4169E1" stroke-width="2" fill="none"/><ellipse cx="200" cy="220" rx="100" ry="40" fill="#8B7355"/><g transform="translate(150, 200)"><rect y="0" width="4" height="30" fill="#654321"/><ellipse cx="2" cy="-5" rx="20" ry="25" fill="#228B22"/></g><g transform="translate(250, 210)"><rect y="0" width="4" height="25" fill="#654321"/><ellipse cx="2" cy="-5" rx="18" ry="22" fill="#228B22"/></g><g transform="translate(200, 170)"><circle cx="0" cy="-40" r="12" fill="#FDBCB4"/><rect x="-8" y="-25" width="16" height="25" fill="#8B4513"/><rect x="-12" y="0" width="10" height="20" fill="#696969"/><rect x="2" y="0" width="10" height="20" fill="#696969"/></g></svg>`;
+      if(type==='grant') return `<svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg"><polygon points="0,150 100,50 200,100 300,30 400,120 400,300 0,300" fill="#8B7355"/><polygon points="100,150 180,80 260,140 200,300 0,300" fill="#A0826D"/><rect width="400" height="150" fill="#87CEEB"/><circle cx="350" cy="40" r="25" fill="#FFD700"/><path d="M 50 200 Q 150 120 250 200 T 380 180" stroke="#FF6347" stroke-width="3" stroke-dasharray="5,5" fill="none"/><g transform="translate(350, 250)"><circle cx="0" cy="0" r="20" fill="none" stroke="#FF6347" stroke-width="2"/><line x1="0" y1="-20" x2="0" y2="20" stroke="#FF6347" stroke-width="2"/><line x1="-20" y1="0" x2="20" y2="0" stroke="#FF6347" stroke-width="2"/><text x="-3" y="-25" font-size="16" font-weight="bold" fill="#FF6347">N</text></g><g transform="translate(100, 180)"><circle cx="0" cy="-30" r="10" fill="#FDBCB4"/><rect x="-7" y="-18" width="14" height="20" fill="#8B4513"/><rect x="-10" y="0" width="9" height="18" fill="#696969"/><rect x="1" y="0" width="9" height="18" fill="#696969"/><rect x="-12" y="-10" width="24" height="4" fill="#1C1C1C"/></g></svg>`;
+      if(type==='nautilus') return `<svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="300" fill="#001F3F"/><line x1="50" y1="0" x2="30" y2="300" stroke="#4169E1" stroke-width="2" opacity="0.3"/><line x1="150" y1="0" x2="140" y2="300" stroke="#4169E1" stroke-width="2" opacity="0.3"/><line x1="250" y1="0" x2="270" y2="300" stroke="#4169E1" stroke-width="2" opacity="0.3"/><line x1="350" y1="0" x2="360" y2="300" stroke="#4169E1" stroke-width="2" opacity="0.3"/><ellipse cx="200" cy="150" rx="80" ry="50" fill="#2F4F4F" stroke="#FFD700" stroke-width="2"/><circle cx="160" cy="140" r="8" fill="#87CEEB"/><circle cx="180" cy="130" r="8" fill="#87CEEB"/><circle cx="220" cy="130" r="8" fill="#87CEEB"/><circle cx="240" cy="140" r="8" fill="#87CEEB"/><g transform="translate(280, 150)"><circle cx="0" cy="0" r="5" fill="#696969"/><rect x="-20" y="-3" width="40" height="6" fill="#696969" opacity="0.6"/></g><rect x="195" y="80" width="10" height="40" fill="#2F4F4F" stroke="#FFD700" stroke-width="1"/><g transform="translate(80, 200)"><polygon points="0,0 -20,-8 -20,8" fill="#FFD700"/><ellipse cx="-15" cy="0" rx="12" ry="8" fill="#FFA500"/></g></svg>`;
+      if(type==='valikhanov') return `<svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg"><polygon points="0,120 80,40 160,90 240,20 320,80 400,50 400,300 0,300" fill="#8B7355"/><polygon points="50,140 130,60 200,110 280,50 350,100 400,80 400,300 0,300" fill="#A0826D"/><rect width="400" height="120" fill="#87CEEB"/><circle cx="350" cy="30" r="20" fill="#FFD700"/><rect y="250" width="400" height="50" fill="#EDC9AF"/><g transform="translate(300, 220)"><ellipse cx="0" cy="0" rx="25" ry="20" fill="#90EE90"/><rect y="0" width="3" height="35" fill="#654321"/><ellipse cy="-8" rx="18" ry="22" fill="#228B22"/></g><g transform="translate(150, 130)"><circle cx="0" cy="-35" r="12" fill="#FDBCB4"/><rect x="-8" y="-22" width="16" height="22" fill="#4169E1"/><circle cx="-10" cy="-15" r="4" fill="#696969"/><circle cx="10" cy="-15" r="4" fill="#696969"/><rect x="-10" y="0" width="8" height="20" fill="#8B4513"/><rect x="2" y="0" width="8" height="20" fill="#8B4513"/><rect x="8" y="-5" width="25" height="20" fill="#F5DEB3" stroke="#654321" stroke-width="1"/><path d="M 15 2 Q 20 5 28 0" stroke="#8B4513" stroke-width="1" fill="none"/></g></svg>`;
+      return "";
+    }
+    function getSVGMap(type) {
+      if(type==='juan_fernandez') return `<svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="300" fill="#4169E1"/><text x="10" y="30" font-size="12" fill="white">Тихий океан</text><text x="20" y="80" font-size="10" fill="#FFD700">80° з.д.</text><text x="20" y="110" font-size="10" fill="#FFD700">33°40′ ю.ш.</text><circle cx="200" cy="150" r="8" fill="#8B7355"/><circle cx="215" cy="155" r="5" fill="#8B7355"/><circle cx="185" cy="160" r="4" fill="#8B7355"/><text x="180" y="185" font-size="11" fill="white" font-weight="bold">Хуан-Фернандес</text><line x1="50" y1="250" x2="100" y2="250" stroke="white" stroke-width="2"/><text x="55" y="270" font-size="10" fill="white">100 км</text></svg>`;
+      if(type==='parallel_37') return `<svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="300" fill="#87CEEB"/><polygon points="80,120 120,100 140,160 100,170" fill="#228B22"/><polygon points="150,80 200,60 220,200 160,180" fill="#228B22"/><polygon points="250,100 320,70 340,180 290,200" fill="#228B22"/><line x1="0" y1="150" x2="400" y2="150" stroke="#FF6347" stroke-width="2" stroke-dasharray="5,5"/><text x="10" y="140" font-size="11" fill="#FF6347" font-weight="bold">37° ю.ш.</text><circle cx="110" cy="150" r="6" fill="#FFD700" stroke="#FF6347" stroke-width="2"/><circle cx="190" cy="150" r="6" fill="#FFD700" stroke="#FF6347" stroke-width="2"/><circle cx="300" cy="150" r="6" fill="#FFD700" stroke="#FF6347" stroke-width="2"/><text x="100" y="175" font-size="9" fill="white">Ю. Америка</text><text x="180" y="175" font-size="9" fill="white">Африка</text><text x="290" y="175" font-size="9" fill="white">Австралия</text></svg>`;
+      if(type==='ocean_depths') return `<svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="waterGrad" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" style="stop-color:#4169E1;stop-opacity:1" /><stop offset="50%" style="stop-color:#001F3F;stop-opacity:1" /><stop offset="100%" style="stop-color:#000814;stop-opacity:1" /></linearGradient></defs><rect width="400" height="300" fill="url(#waterGrad)"/><line x1="350" y1="20" x2="350" y2="280" stroke="white" stroke-width="1" stroke-dasharray="3,3"/><text x="10" y="40" font-size="10" fill="#FFD700">Поверхность (0м)</text><text x="10" y="100" font-size="10" fill="#FFD700">Мезопелагиль (1000м)</text><text x="10" y="160" font-size="10" fill="#FFD700">Батипелагиль (4000м)</text><text x="10" y="240" font-size="10" fill="#FFD700">Абиссаль (8000м)</text><ellipse cx="200" cy="270" rx="40" ry="15" fill="#2F4F4F" opacity="0.7"/><text x="180" y="295" font-size="9" fill="#FFD700">Наутилус</text></svg>`;
+      if(type==='kashgaria') return `<svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg"><rect width="400" height="300" fill="#E6B8A2"/><polygon points="50,80 100,20 150,60 120,120" fill="#8B7355"/><polygon points="250,70 320,10 370,50 330,140" fill="#8B7355"/><ellipse cx="200" cy="200" rx="100" ry="80" fill="#EDC9AF"/><circle cx="150" cy="180" r="15" fill="#90EE90"/><circle cx="250" cy="210" r="15" fill="#90EE90"/><text x="120" y="40" font-size="9" fill="#654321" font-weight="bold">Тянь-Шань</text><text x="280" y="40" font-size="9" fill="#654321" font-weight="bold">Куньлунь</text><text x="170" y="250" font-size="10" fill="#696969" font-weight="bold">Такла-Макан</text><text x="125" y="205" font-size="8" fill="white" font-weight="bold">Кашгар</text><text x="235" y="235" font-size="8" fill="white" font-weight="bold">Яркенд</text><path d="M 100 150 Q 200 140 300 180" stroke="#FFD700" stroke-width="2" stroke-dasharray="4,4" fill="none"/><text x="150" y="125" font-size="8" fill="#FFD700">Шёлковый путь</text></svg>`;
+      return "";
+    }
+
+    const questions = [
+      // 0-3: Робинзон
+      { book: "Робинзон Крузо", author: "Даниель Дефо", preText: "33 гр.40 ю.ш. и 80 гр. з.д. — это архипелаг Хуан-Фернандес.", text: "Определите архипелаг, где оказался Робинзон.", illustration: getSVGIllustration('robinson'), map: getSVGMap('juan_fernandez'), isVector: true, answers: ["Хуан-Фернандес", "Галапагосы", "Фолкленды", "Остров Пасхи"], correct: 0, explanation: "Именно здесь провёл 4 года моряк Александр Селькирк — прототип Робинзона." },
+      { book: "Робинзон Крузо", author: "Даниель Дефо", preText: "Высшая точка — гора Юнке (1000 м).", text: "Как называется высшая точка острова Робинзона?", illustration: getSVGIllustration('robinson'), map: getSVGMap('juan_fernandez'), isVector: true, answers: ["Эль-Юнке", "Монблан", "Осорно", "Аконкагуа"], correct: 0, explanation: "Гора Эль-Юнке (915 м). Название переводится как 'наковальня'." },
+      { book: "Робинзон Крузо", author: "Даниель Дефо", preText: "Теплое и холодное течения создают идеальные условия.", text: "В каком климатическом поясе расположен архипелаг?", illustration: getSVGIllustration('robinson'), map: getSVGMap('juan_fernandez'), isVector: true, answers: ["Субтропический", "Арктический", "Экваториальный", "Субарктический"], correct: 0, explanation: "Субтропический климат обеспечил Робинзону выживание." },
+      { book: "Робинзон Крузо", author: "Даниель Дефо", preText: "Архипелаг омывается рыбным течением.", text: "Какое холодное течение омывает остров?", illustration: getSVGIllustration('robinson'), map: getSVGMap('juan_fernandez'), isVector: true, answers: ["Перуанское", "Гольфстрим", "Бразильское", "Канарское"], correct: 0, explanation: "Перуанское (Гумбольдта) течение — богатое рыбой и планктоном." },
+      // 4-8: Капитан Грант
+      { book: "Дети капитана Гранта", author: "Жюль Верн", preText: "37-я параллель проходит через три материка.", text: "Какие страны пересекает эта параллель в Андах?", illustration: getSVGIllustration('grant'), map: getSVGMap('parallel_37'), isVector: true, answers: ["Чили и Аргентина", "Бразилия и Боливия", "Колумбия и Эквадор", "Перу и Бразилия"], correct: 0, explanation: "Чили и Аргентина — здесь герои искали капитана в Андах." },
+      { book: "Дети капитана Гранта", author: "Жюль Верн", preText: "Удаленный остров в Атлантике.", text: "Какой уединённый остров находится на 37° ю.ш., 12° з.д.?", illustration: getSVGIllustration('grant'), map: getSVGMap('parallel_37'), isVector: true, answers: ["Тристан-да-Кунья", "Мадагаскар", "Святая Елена", "Вознесения"], correct: 0, explanation: "Тристан-да-Кунья — самый удалённый обитаемый остров." },
+      { book: "Дети капитана Гранта", author: "Жюль Верн", preText: "Они достигают Австралии.", text: "Какой регион Австралии расположен на 37° ю.ш., 145° в.д.?", illustration: getSVGIllustration('grant'), map: getSVGMap('parallel_37'), isVector: true, answers: ["Виктория (юго-восток)", "Западная Австралия", "Северная территория", "Квинсленд"], correct: 0, explanation: "Штат Виктория — важная точка их путешествия." },
+      { book: "Дети капитана Гранта", author: "Жюль Верн", preText: "Конец долгого пути.", text: "На каком материке заканчивается путешествие по 37-й параллели?", illustration: getSVGIllustration('grant'), map: getSVGMap('parallel_37'), isVector: true, answers: ["Австралия", "Африка", "Южная Америка", "Новая Зеландия"], correct: 0, explanation: "Они находят ответы в Австралии/Новой Зеландии, завершая путь." },
+      { book: "Дети капитана Гранта", author: "Жюль Верн", preText: "Бутылка найдена у берегов Чили.", text: "Какой материк герои пересекают первым?", illustration: getSVGIllustration('grant'), map: getSVGMap('parallel_37'), isVector: true, answers: ["Южная Америка", "Африка", "Азия", "Австралия"], correct: 0, explanation: "Поиск начинается в Южной Америке (Патагония)." },
+      // 9-13: Капитан Немо
+      { book: "20 000 лье под водой", author: "Жюль Верн", preText: "Подводный корабль.", text: "Как называется чудо-корабль Капитана Немо?", illustration: getSVGIllustration('nautilus'), map: getSVGMap('ocean_depths'), isVector: true, answers: ["Наутилус", "Аргонавт", "Триумфалис", "Посейдон"], correct: 0, explanation: "Наутилус назван в честь морского моллюска." },
+      { book: "20 000 лье под водой", author: "Жюль Верн", preText: "Чудо инженерии.", text: "Какова глубина максимального погружения Наутилуса?", illustration: getSVGIllustration('nautilus'), map: getSVGMap('ocean_depths'), isVector: true, answers: ["8000 метров", "3000 метров", "10000 метров", "5000 метров"], correct: 0, explanation: "До 8000 метров — невероятно для XIX века!" },
+      { book: "20 000 лье под водой", author: "Жюль Верн", preText: "Легендарная схватка.", text: "Какого монстра встречают герои?", illustration: getSVGIllustration('nautilus'), map: getSVGMap('ocean_depths'), isVector: true, answers: ["Кашалот", "Белую акулу", "Голубого кита", "Гигантского кальмара"], correct: 3, explanation: "Схватка с гигантским спрутом/кальмаром — классика романа." },
+      { book: "20 000 лье под водой", author: "Жюль Верн", preText: "Странное существо атакует суда.", text: "Какой берег изначально находится в поиске?", illustration: getSVGIllustration('nautilus'), map: getSVGMap('ocean_depths'), isVector: true, answers: ["Берега США", "Берега Европы", "Берега Южной Америки", "Берега Африки"], correct: 0, explanation: "Всё началось у берегов США." },
+      { book: "20 000 лье под водой", author: "Жюль Верн", preText: "Начало путешествия.", text: "Какой океан герои пересекают первым?", illustration: getSVGIllustration('nautilus'), map: getSVGMap('ocean_depths'), isVector: true, answers: ["Атлантический", "Тихий", "Индийский", "Северный Ледовитый"], correct: 0, explanation: "Путешествие начинается в водах Атлантики." },
+      // 14-17: Валиханов
+      { book: "Путешествия Валиханова", author: "Чокан Валиханов", preText: "Тайная экспедиция в 1858 году.", text: "Какой казахский путешественник исследовал Кашгарию?", illustration: getSVGIllustration('valikhanov'), map: getSVGMap('kashgaria'), isVector: true, answers: ["Чокан Валиханов", "Петр Семёнов", "Миклухо-Маклай", "Иван Лапин"], correct: 0, explanation: "Чокан Валиханов — первый европеец, официально посетивший Кашгар." },
+      { book: "Путешествия Валиханова", author: "Чокан Валиханов", preText: "Таримская впадина.", text: "Какие горные хребты окружают пустыню Такла-Макан?", illustration: getSVGIllustration('valikhanov'), map: getSVGMap('kashgaria'), isVector: true, answers: ["Тянь-Шань и Куньлунь", "Памир и Алтай", "Гималаи и Гиндукуш", "Атлас и Гомер"], correct: 0, explanation: "Тянь-Шань (на севере) и Куньлунь (на юге)." },
+      { book: "Путешествия Валиханова", author: "Чокан Валиханов", preText: "Города на Шелковом пути.", text: "Какие оазисы расположены в Кашгарии?", illustration: getSVGIllustration('valikhanov'), map: getSVGMap('kashgaria'), isVector: true, answers: ["Кашгар и Яркенд", "Кабул и Самарканд", "Хорезм и Бухара", "Ташкент и Фергана"], correct: 0, explanation: "Кашгар и Яркенд — важнейшие торговые узлы." },
+      { book: "Путешествия Валиханова", author: "Чокан Валиханов", preText: "Ключевая роль региона.", text: "Какую роль играла Кашгария на Шёлковом пути?", illustration: getSVGIllustration('valikhanov'), map: getSVGMap('kashgaria'), isVector: true, answers: ["Главный торговый центр", "Военный форпост", "Научный центр", "Морской порт"], correct: 0, explanation: "Это был жизненно важный торговый узел, связывавший Китай, Индию и Европу." }
+    ];
+
+    const bookStarts = [0, 4, 9, 14];
+    const bookEnds = [3, 8, 13, 17];
+
+    // --- FIREBASE LOGIC ---
+    auth.onAuthStateChanged(user => {
+      currentUser = user;
+      if (user) {
+        loadUserData(user.uid);
+      } else {
+        renderAuthUI();
+        renderMenuCards();
+      }
+    });
+
+    function login() {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      auth.signInWithRedirect(provider);
+    }
+
+    function logout() {
+      auth.signOut().then(() => location.reload());
+    }
+
+    function loadUserData(uid) {
+      db.ref('users/' + uid).once('value').then(snapshot => {
+        const data = snapshot.val();
+        if (data && data.scores) {
+          userScores = data.scores;
+          totalScore = data.totalScore || 0;
+        }
+        renderAuthUI();
+        renderMenuCards();
+      });
+    }
+
+    function saveProgress(bookId, bookScore) {
+      if (!currentUser) return;
+      
+      // Сохраняем только если новый счет лучше старого
+      userScores[bookId] = Math.max(userScores[bookId] || 0, bookScore);
+      
+      // Считаем общий счет по всем книгам
+      totalScore = Object.values(userScores).reduce((a, b) => a + b, 0);
+
+      db.ref('users/' + currentUser.uid).set({
+        username: currentUser.displayName,
+        photo: currentUser.photoURL,
+        scores: userScores,
+        totalScore: totalScore
+      });
+
+      db.ref('leaderboard/' + currentUser.uid).set({
+        username: currentUser.displayName,
+        score: totalScore,
+        photo: currentUser.photoURL
+      });
+
+      renderAuthUI(); // Обновляем счет в шапке
+    }
+
+    // --- UI RENDERING ---
+    function renderAuthUI() {
+      const authDiv = document.getElementById('auth-section');
+      if (currentUser) {
+        authDiv.innerHTML = `
+          <div class="card-glass rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 fade-in max-w-5xl mx-auto">
+            <div class="flex items-center gap-4">
+              <img src="${currentUser.photoURL}" class="w-14 h-14 rounded-full border-2 border-amber-400">
+              <div>
+                <p class="text-sm opacity-70">Исследователь</p>
+                <p class="font-bold text-lg">${currentUser.displayName}</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-4">
+              <div class="text-right">
+                <p class="text-xs opacity-70">Общий рейтинг</p>
+                <p class="text-xl font-bold text-amber-400">${totalScore} / 18 🏆</p>
+              </div>
+              <button onclick="showLeaderboard()" class="px-5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 rounded-xl text-slate-900 font-bold hover:scale-105 transition">Лидеры</button>
+              <button onclick="logout()" class="px-4 py-2 bg-white/10 rounded-xl text-sm hover:bg-white/20 transition">Выйти</button>
+            </div>
+          </div>
+        `;
+      } else {
+        authDiv.innerHTML = `
+          <div class="text-center fade-in">
+            <button onclick="login()" class="px-8 py-3 rounded-full bg-white text-slate-900 font-bold hover:scale-105 transition-all shadow-lg flex items-center justify-center gap-3 mx-auto">
+              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-5 h-5"> 
+              Войти, чтобы копить очки
+            </button>
+            <p class="text-xs mt-3 opacity-60">Вы можете играть и без входа, но результаты не попадут в рейтинг</p>
+          </div>
+        `;
+      }
+    }
+
+    function renderMenuCards() {
+      const grid = document.getElementById('books-grid');
+      grid.innerHTML = books.map(b => {
+        const bestScore = userScores[b.id] || 0;
+        const isCompleted = bestScore === b.qCount;
+        
+        return `
+          <button onclick="startQuizFromBook(${b.id})" class="card-glass rounded-2xl p-6 fade-in book-block ${b.theme} cursor-pointer text-left hover:scale-105 transform transition-transform duration-300 relative overflow-hidden">
+            ${isCompleted ? '<div class="absolute top-4 right-4 text-2xl">✅</div>' : ''}
+            <div>
+              <h3 class="text-2xl font-bold text-white mb-1" style="font-family: 'Playfair Display', serif;">${b.title}</h3>
+              <p class="text-sm ${b.color}">${b.author}</p>
+              
+              <div class="mt-4 flex items-center justify-between">
+                <p class="text-xs text-white/60">📍 ${b.qCount} вопросов</p>
+                ${bestScore > 0 ? `<p class="text-xs font-bold text-amber-400">Пройдено: ${bestScore}/${b.qCount}</p>` : ''}
+              </div>
+              
+              <p class="text-white/80 text-sm mt-4 border-t border-white/10 pt-3" style="font-family: 'Source Sans Pro', sans-serif;">
+                ${b.desc}
+              </p>
+            </div>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function showLeaderboard() {
+      document.getElementById('main-menu').classList.add('hidden');
+      document.getElementById('quiz-wrapper').classList.add('hidden');
+      const lbSection = document.getElementById('leaderboard-section');
+      lbSection.classList.remove('hidden');
+
+      const list = document.getElementById('leaderboard-list');
+      list.innerHTML = '<div class="text-center py-4">Загрузка...</div>';
+
+      db.ref('leaderboard').orderByChild('score').limitToLast(10).once('value').then(snapshot => {
+        let html = '';
+        let rank = 1;
+        // Firebase возвращает данные по возрастанию, поэтому переворачиваем
+        const data = [];
+        snapshot.forEach(child => { data.unshift(child.val()); });
+
+        if(data.length === 0) {
+           list.innerHTML = '<div class="text-center py-4 opacity-50">Пока никого нет. Стань первым!</div>';
+           return;
+        }
+
+        data.forEach((p, i) => {
+          html += `
+            <div class="flex items-center gap-4 p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition">
+              <span class="w-6 text-center font-bold text-amber-400">${i+1}</span>
+              <img src="${p.photo}" class="w-10 h-10 rounded-full">
+              <span class="flex-1 font-semibold">${p.username}</span>
+              <span class="bg-amber-500/20 text-amber-400 px-3 py-1 rounded-lg font-bold">${p.score} 🌍</span>
+            </div>
+          `;
+        });
+        list.innerHTML = html;
+      });
+    }
+
+    function showMenu() {
+      document.getElementById('leaderboard-section').classList.add('hidden');
+      document.getElementById('quiz-wrapper').classList.add('hidden');
+      document.getElementById('main-menu').classList.remove('hidden');
+      
+      // При возврате в меню меняем фон на стандартный
+      document.getElementById('app-wrapper').className = "quiz-bg min-h-full w-full p-4 md:p-8 flex flex-col items-center";
+      renderMenuCards(); // Обновляем карточки (чтобы показать галочки)
+    }
+
+    // --- ЛОГИКА ИГРЫ ---
+    function startQuizFromBook(bookIndex) {
+      startingBook = bookIndex;
+      currentQuestion = bookStarts[bookIndex];
+      score = 0;
+      answered = false;
+      
+      // Скрываем меню, показываем викторину
+      document.getElementById('main-menu').classList.add('hidden');
+      document.getElementById('leaderboard-section').classList.add('hidden');
+      document.getElementById('quiz-wrapper').classList.remove('hidden');
+      
+      document.getElementById('score-text').textContent = 'Счёт: 0';
+      document.getElementById('progress-bar').style.width = '0%';
+      
+      // Меняем фон в зависимости от книги
+      const themes = ['robinson-theme', 'grant-theme', 'nemo-theme', 'valikhanov-theme'];
+      document.getElementById('app-wrapper').className = `quiz-bg ${themes[bookIndex]} min-h-full w-full p-4 md:p-8 flex flex-col items-center`;
+
+      renderQuestion();
+    }
+
+    function renderQuestion() {
+      const q = questions[currentQuestion];
+      const container = document.getElementById('quiz-container');
+      
+      container.innerHTML = `
+        <div class="fade-in">
+          <div class="flex items-center justify-between mb-4 pb-4 border-b border-white/10">
+            <div class="flex items-center gap-3">
+              <span class="text-3xl">📚</span>
+              <div>
+                <div class="text-amber-400 font-semibold" style="font-family: 'Playfair Display', serif;">${q.book}</div>
+                <div class="text-white/60 text-sm">${q.author}</div>
+              </div>
+            </div>
+            <button onclick="showMenu()" class="text-sm opacity-50 hover:opacity-100 transition">✕ Закрыть</button>
+          </div>
+          
+          <div class="mb-6 p-4 rounded-lg bg-white/5 border border-white/10">
+            <p class="text-white/80 text-sm leading-relaxed" style="font-family: 'Source Sans Pro', sans-serif;">${q.preText}</p>
+          </div>
+          
+          <p class="text-lg md:text-xl text-white mb-6 leading-relaxed font-semibold" style="font-family: 'Source Sans Pro', sans-serif;">
+            ${q.text}
+          </p>
+          
+          <div class="grid grid-cols-2 gap-4 mb-6">
+            <div>
+              <p class="text-xs text-white/50 mb-2 pl-1">Иллюстрация</p>
+              <div class="w-full rounded-lg border border-white/10 overflow-hidden bg-white/5" style="height: 180px;">
+                ${q.illustration}
+              </div>
+            </div>
+            <div>
+              <p class="text-xs text-white/50 mb-2 pl-1">Карта</p>
+              <div class="w-full rounded-lg border border-white/10 overflow-hidden bg-white/5" style="height: 180px;">
+                ${q.map}
+              </div>
+            </div>
+          </div>
+          
+          <div class="space-y-3" id="answers-container">
+            ${q.answers.map((answer, index) => `
+              <button onclick="selectAnswer(${index})" class="answer-btn w-full text-left px-5 py-4 rounded-xl text-white font-medium transition-all" style="font-family: 'Source Sans Pro', sans-serif;">
+                <span class="inline-block w-8 h-8 rounded-full bg-white/10 text-center leading-8 mr-3 text-amber-400 font-bold">${String.fromCharCode(65 + index)}</span>
+                ${answer}
+              </button>
+            `).join('')}
+          </div>
+          
+          <div id="explanation" class="hidden mt-6 p-4 rounded-xl bg-white/5 border border-white/10">
+            <div class="flex items-start gap-3">
+              <span class="text-2xl">💡</span>
+              <p class="text-white/80 text-sm leading-relaxed" style="font-family: 'Source Sans Pro', sans-serif;">${q.explanation}</p>
+            </div>
+          </div>
+          
+          <button id="next-btn" onclick="nextQuestion()" class="hidden w-full mt-6 py-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-slate-900 font-bold text-lg transition-all hover:from-amber-400 hover:to-amber-500 shadow-xl">
+            Следующий вопрос →
+          </button>
+        </div>
+      `;
+      updateProgress();
+    }
+
+    function selectAnswer(index) {
+      if (answered) return;
+      answered = true;
+      
+      const q = questions[currentQuestion];
+      const buttons = document.querySelectorAll('.answer-btn');
+      
+      buttons.forEach((btn, i) => {
+        btn.disabled = true;
+        if (i === q.correct) {
+          btn.classList.add('correct');
+        } else if (i === index && index !== q.correct) {
+          btn.classList.add('incorrect');
+        } else {
+          btn.style.opacity = '0.5';
+        }
+      });
+      
+      if (index === q.correct) {
+        score++;
+        document.getElementById('score-text').textContent = `Счёт: ${score}`;
+      }
+      
+      document.getElementById('explanation').classList.remove('hidden');
+      document.getElementById('next-btn').classList.remove('hidden');
+    }
+
+    function nextQuestion() {
+      currentQuestion++;
+      answered = false;
+      if (currentQuestion <= bookEnds[startingBook]) {
+        renderQuestion();
+      } else {
+        showResults();
+      }
+    }
+
+    function updateProgress() {
+      const bookStart = bookStarts[startingBook];
+      const bookLength = bookEnds[startingBook] - bookStart + 1;
+      const localQuestion = currentQuestion - bookStart;
+      const progress = (localQuestion / bookLength) * 100;
+      
+      document.getElementById('progress-bar').style.width = `${progress}%`;
+      document.getElementById('progress-text').textContent = `Вопрос ${localQuestion + 1} из ${bookLength}`;
+    }
+
+    function showResults() {
+      const bookLength = bookEnds[startingBook] - bookStarts[startingBook] + 1;
+      const percentage = Math.round((score / bookLength) * 100);
+      const container = document.getElementById('quiz-container');
+      
+      // СОХРАНЯЕМ РЕЗУЛЬТАТ В БАЗУ ДАННЫХ
+      saveProgress(startingBook, score);
+
+      let emoji, message;
+      if (percentage >= 85) { emoji = '🏆'; message = 'Превосходно! Вы настоящий знаток географии!'; } 
+      else if (percentage >= 60) { emoji = '🌟'; message = 'Отлично! У вас хорошие знания!'; } 
+      else if (percentage >= 40) { emoji = '📖'; message = 'Неплохо! Есть куда расти.'; } 
+      else { emoji = '🗺️'; message = 'Стоит перечитать классику и изучить карты!'; }
+      
+      container.innerHTML = `
+        <div class="text-center fade-in py-8">
+          <div class="text-7xl mb-6">${emoji}</div>
+          <h2 class="text-3xl font-bold text-white mb-4" style="font-family: 'Playfair Display', serif;">Книга пройдена!</h2>
+          <p class="text-xl text-amber-400 mb-2 font-semibold">Ваш результат: ${score} из ${bookLength}</p>
+          <div class="w-32 h-32 mx-auto my-6 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
+            <span class="text-4xl font-bold text-slate-900">${percentage}%</span>
+          </div>
+          <p class="text-white/80 mb-8">${message}</p>
+          <button onclick="showMenu()" class="px-8 py-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-slate-900 font-bold text-lg transition-all hover:scale-105 w-full">
+            Вернуться в меню
+          </button>
+        </div>
+      `;
+      document.getElementById('progress-bar').style.width = '100%';
+      document.getElementById('progress-text').textContent = 'Завершено';
+    }
+  </script>
+</body>
+</html>
