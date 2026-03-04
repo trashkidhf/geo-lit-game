@@ -364,6 +364,17 @@
       score = 0;
       answered = false;
       
+      // === НОВЫЙ КОД: Случайное перемешивание ответов ===
+      const start = bookStarts[bookIndex];
+      const end = bookEnds[bookIndex];
+      for (let i = start; i <= end; i++) {
+        const q = questions[i];
+        const correctText = q.answers[q.correct]; // Запоминаем текст правильного ответа
+        q.answers = [...q.answers].sort(() => Math.random() - 0.5); // Перемешиваем варианты
+        q.correct = q.answers.indexOf(correctText); // Обновляем индекс правильного ответа
+      }
+      // ==================================================
+
       // Скрываем меню, показываем викторину
       document.getElementById('main-menu').classList.add('hidden');
       document.getElementById('leaderboard-section').classList.add('hidden');
@@ -523,4 +534,5 @@
     }
   </script>
 </body>
+
 </html>
